@@ -4,7 +4,7 @@ import { makeImage, MOCK } from './helpers';
 /**
  * Exercises the REAL integration code (OAuth Authorization Code + PKCE, Picker session lifecycle, pagination,
  * authorized server-side downloads, cleanup) against a local test double that enforces Google's contract.
- * This is NOT a live Google test: see README for what still needs real credentials.
+ * This is NOT a live Google test: see docs/INSTALL.md for what still needs real credentials.
  */
 test('Google Photos Picker flow against the local mock', async ({ page, request, context }) => {
   test.setTimeout(120_000);

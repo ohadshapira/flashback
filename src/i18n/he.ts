@@ -92,7 +92,7 @@ export const he: Messages = {
   'photos.deleteGame': 'מחיקת המשחק',
 
   'google.notConfigured': 'Google Photos is not configured in this development environment.',
-  'google.notConfiguredHelp': 'אפשר להעלות מהמכשיר, או לקרוא ב-README איך מגדירים את Google Photos.',
+  'google.notConfiguredHelp': 'אפשר להעלות מהמכשיר, או לקרוא במדריך ההתקנה (docs/INSTALL.md) איך מגדירים את Google Photos.',
   'google.mock': 'Google Photos מחובר לשרת בדיקה מקומי ולא ל-Google האמיתי.',
   'google.disclosure.title': 'לפני שמתחברים ל-Google Photos',
   'google.disclosure.b1': 'אתם בוחרים את התמונות בתוך Google Photos. ל-flashback אין יכולת לעבור על הספרייה או לסרוק אותה.',

@@ -90,7 +90,7 @@ export const en = {
   'photos.deleteGame': 'Delete this game',
 
   'google.notConfigured': 'Google Photos is not configured in this development environment.',
-  'google.notConfiguredHelp': 'Upload from your device instead, or see the README to configure Google Photos.',
+  'google.notConfiguredHelp': 'Upload from your device instead, or see the installation guide (docs/INSTALL.md) to configure Google Photos.',
   'google.mock': 'Google Photos is pointed at a local TEST server, not real Google.',
   'google.disclosure.title': 'Before we connect to Google Photos',
   'google.disclosure.b1': 'You choose the photos in Google Photos. flashback cannot browse or scan your library.',

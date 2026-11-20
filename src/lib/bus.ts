@@ -1,6 +1,6 @@
 /**
  * In-process change notifications for realtime rooms. Events are only *hints* ("something changed,
- * refetch"); the database stays the source of truth. Single-instance by design — see README for the
+ * refetch"); the database stays the source of truth. Single-instance by design — see docs/REFERENCE.md for the
  * multi-instance story (swap this for Redis/Supabase Realtime).
  */
 type Listener = () => void;
