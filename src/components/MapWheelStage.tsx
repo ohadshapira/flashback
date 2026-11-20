@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, Check, Eye, X } from 'lucide-react';
 import { WorldMap } from './WorldMap';
 import { ClueStage } from './ClueView';
-import { DateWheels } from './DateWheels';
+import { DateWheels, type WheelDecor } from './DateWheels';
 import { useI18n } from './I18nProvider';
 import type { MonthYear } from '@/lib/date';
+import { isAt, isSouthern, roundJobs, type PartnersProfile } from '@/lib/partners';
 import type { Pin } from '@/lib/client/types';
 
 type Props = {
@@ -29,6 +30,8 @@ type Props = {
   /** Extra content above the wheels (e.g. host suggestion chips). */
   extra?: React.ReactNode;
   focus?: (Pin & { nonce: number }) | null;
+  /** Partners: the family's places on the map, child-friendly wheel labels, and (with `roundIndex`) who does which job. */
+  partners?: { profile: PartnersProfile; roundIndex?: number } | null;
   className?: string;
 };
 
@@ -73,13 +76,20 @@ function usePlaceLabel(pin: Pin | null): string | null {
  * a bottom panel on the same map, and the confirm action inside that panel. Used both for guessing
  * (all game modes) and for the host's setup of the correct answer.
  */
-export function MapWheelStage({ mode, pin, onPinChange, date, onDateChange, onConfirm, confirmLabel, title, busy, locked, clueUrl, clueStage, extra, focus, className }: Props) {
+export function MapWheelStage({ mode, pin, onPinChange, date, onDateChange, onConfirm, confirmLabel, title, busy, locked, clueUrl, clueStage, extra, focus, partners, className }: Props) {
   const { t } = useI18n();
   const compact = useCompactHeight();
   const panel = useRef<HTMLDivElement>(null);
   const [inset, setInset] = useState(260);
   const [zoomed, setZoomed] = useState(false);
   const place = usePlaceLabel(pin);
+
+  const profile = partners?.profile ?? null;
+  const roundIndex = partners?.roundIndex;
+  const jobs = profile && roundIndex !== undefined ? roundJobs(profile, roundIndex) : null;
+  const decor = useMemo<WheelDecor | undefined>(() => (profile ? { birth: profile.birth, south: isSouthern(profile) } : undefined), [profile]);
+  const mapPlaces = profile?.places.map((p) => ({ lat: p.lat, lng: p.lng, icon: p.icon, label: p.label, active: !!pin && isAt(pin, p) }));
+  const pinPlace = profile && pin ? profile.places.find((p) => isAt(pin, p)) : undefined;
 
   useEffect(() => {
     const el = panel.current;
@@ -101,7 +111,18 @@ export function MapWheelStage({ mode, pin, onPinChange, date, onDateChange, onCo
 
   return (
     <div className={`relative isolate overflow-hidden ${className ?? ''}`} data-testid="map-wheel-stage" data-mode={mode}>
-      <WorldMap className="absolute inset-0" pin={pin} onPinChange={locked ? undefined : onPinChange} readOnly={locked} bottomInset={inset} focus={focus} ariaLabel={t('stage.mapLabel')} />
+      <WorldMap
+        className="absolute inset-0"
+        pin={pin}
+        onPinChange={locked ? undefined : onPinChange}
+        readOnly={locked}
+        bottomInset={inset}
+        focus={focus}
+        places={mapPlaces}
+        onPlaceTap={mapPlaces && !locked ? (i) => onPinChange({ lat: profile!.places[i].lat, lng: profile!.places[i].lng }) : undefined}
+        snapToPlaces={!!mapPlaces?.length}
+        ariaLabel={t('stage.mapLabel')}
+      />
 
       {/* current clue: only the authorized crop, as a small thumbnail */}
       {clueUrl && (
@@ -116,7 +137,15 @@ export function MapWheelStage({ mode, pin, onPinChange, date, onDateChange, onCo
       {/* hint */}
       <div className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-16" style={{ bottom: inset + 12 }}>
         <div className="max-w-full truncate rounded-full bg-ink/85 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur" data-testid="map-hint" aria-live="polite">
-          {locked ? t('stage.locked') : pin ? (place ?? t('stage.hintDrag')) : t('stage.hintPlace')}
+          {locked
+            ? t('stage.locked')
+            : pinPlace
+              ? `${pinPlace.icon} ${pinPlace.label}`
+              : pin
+                ? (place ?? t('stage.hintDrag'))
+                : jobs
+                  ? t('partners.hintPlace', { name: jobs.map })
+                  : t('stage.hintPlace')}
         </div>
       </div>
 
@@ -129,6 +158,12 @@ export function MapWheelStage({ mode, pin, onPinChange, date, onDateChange, onCo
       >
         <div className="mx-auto max-w-md">
           {!compact && <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-line" />}
+          {jobs && (
+            <div className="mb-1.5 flex flex-wrap gap-1.5" role="note" aria-label={t('partners.jobsAria', { map: jobs.map, wheels: jobs.wheels })} data-testid="partners-jobs">
+              <span className={`chip ${jobs.childOnMap ? 'bg-rose-soft text-rose-deep ring-2 ring-rose/30' : 'bg-blue-soft text-blue-deep'}`} data-testid="job-map">🗺️ {t('partners.mapJob', { name: jobs.map })}</span>
+              <span className={`chip ${jobs.childOnMap ? 'bg-blue-soft text-blue-deep' : 'bg-rose-soft text-rose-deep ring-2 ring-rose/30'}`} data-testid="job-wheels">📅 {t('partners.wheelsJob', { name: jobs.wheels })}</span>
+            </div>
+          )}
           <div className={`flex items-center justify-between gap-2 ${compact ? 'mb-0.5' : 'mb-2'}`}>
             <h2 className="font-display text-xl font-semibold">{title}</h2>
             <span className={`chip shrink-0 whitespace-nowrap transition-colors ${pin ? 'bg-good-soft text-good' : 'bg-blue-soft text-blue-deep'}`}>
@@ -136,7 +171,7 @@ export function MapWheelStage({ mode, pin, onPinChange, date, onDateChange, onCo
             </span>
           </div>
           {extra}
-          <DateWheels value={date} onChange={onDateChange} rows={compact ? 3 : 5} disabled={locked} />
+          <DateWheels value={date} onChange={onDateChange} rows={compact ? 3 : 5} disabled={locked} decor={decor} />
           <button type="button" className={`btn-primary w-full ${compact ? 'mt-2' : 'mt-3'}`} disabled={!canConfirm} onClick={onConfirm} data-testid="confirm-guess" aria-disabled={!canConfirm}>
             <Check size={18} aria-hidden /> {busy ? t('common.loading') : confirmLabel}
           </button>

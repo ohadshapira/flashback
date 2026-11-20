@@ -8,6 +8,7 @@ import { AppHeader, ErrorBox, Spinner } from '@/components/Shell';
 import { useI18n } from '@/components/I18nProvider';
 import { api } from '@/lib/client/api';
 import { useLoad } from '@/lib/client/hooks';
+import { roundJobs } from '@/lib/partners';
 import type { SharedView } from '@/lib/client/types';
 
 /** Hides every host control and answer, then hands the device to the player. */
@@ -36,6 +37,8 @@ export default function HandoffPage() {
   }
 
   const couple = data?.game.mode === 'couple';
+  const partners = data?.game.partners ?? null;
+  const first = partners ? roundJobs(partners, 0) : null;
   return (
     <>
       <AppHeader />
@@ -53,8 +56,14 @@ export default function HandoffPage() {
               <span className="absolute -bottom-1 -end-1 grid h-12 w-12 place-items-center rounded-full bg-ink text-white"><EyeOff size={22} aria-hidden /></span>
             </div>
             <h1 className="font-display text-4xl font-semibold" data-testid="handoff-title">{t('handoff.title')}</h1>
-            <p className="max-w-sm text-lg text-muted">{couple ? t('handoff.couple') : t('handoff.family')}</p>
-            <p className="chip bg-blue-soft text-blue-deep">{t('handoff.photos', { n: data.total })}</p>
+            {first ? (
+              <p className="max-w-sm text-lg leading-relaxed text-muted" data-testid="handoff-text">{t('partners.handoff', { n: data.total, map: first.map, wheels: first.wheels })}</p>
+            ) : (
+              <>
+                <p className="max-w-sm text-lg text-muted">{couple ? t('handoff.couple') : t('handoff.family')}</p>
+                <p className="chip bg-blue-soft text-blue-deep">{t('handoff.photos', { n: data.total })}</p>
+              </>
+            )}
             {err && <ErrorBox message={err} />}
             <button type="button" className="btn-primary min-w-56 !py-3.5 text-lg" onClick={begin} disabled={busy} data-testid="handoff-ready">
               {t('handoff.ready')}

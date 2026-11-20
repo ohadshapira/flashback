@@ -12,7 +12,7 @@ flashback turns your own photos into a private memory game. Players see a tightl
 
 ## Highlights
 
-* **Three ways to play**: **Couple** (pass the phone), **Family & Friends** (one screen, one team answer), **Party** (everyone on their own phone, synchronized by the server). Party has a harder *Scratch* style where you scratch the photo clear and score less the more you reveal.
+* **Four ways to play**: **Couple** (pass the phone), **Family & Friends** (one screen, one team answer), **Partners** (a parent and a child as one team, built calm and predictable with autistic kids in mind), **Party** (everyone on their own phone, synchronized by the server). Party has a harder *Scratch* style where you scratch the photo clear and score less the more you reveal.
 * **Your photos**: upload from your device or import with the **Google Photos Picker**. The date is pre-filled from the photo, and the place too when the file has GPS data. You can always change them.
 * **Answers stay secret**: players only receive physically cropped, metadata-free clue images. The original photo and the correct place and date reach them only at the reveal.
 * **English and Hebrew** (right-to-left), switchable in the header.

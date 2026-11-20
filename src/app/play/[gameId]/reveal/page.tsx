@@ -19,7 +19,7 @@ export default function RevealPage() {
   const { data, error, reload } = useLoad(async () => {
     try {
       const [result, view] = await Promise.all([api<RoundResult>(`/api/games/${gameId}/round/result`), api<SharedView>(`/api/games/${gameId}/round/current`)]);
-      return { result, mode: view.game.mode };
+      return { result, mode: view.game.mode, partners: view.game.partners };
     } catch (e) {
       // Not guessed yet → back to the clue (the server never reveals early).
       if (e instanceof ApiClientError && (e.code === 'not_revealed' || e.code === 'bad_state')) router.replace(`/play/${gameId}`);
@@ -49,6 +49,7 @@ export default function RevealPage() {
         immersive
         result={data.result}
         team={data.mode === 'family_shared'}
+        partners={data.partners}
         actions={
           <>
             {err && <div className="mb-2"><ErrorBox message={err} /></div>}

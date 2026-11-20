@@ -152,6 +152,7 @@ function DetailsForm({ info }: { info: PhotoInfo }) {
             title={t('stage.whenWhere')}
             busy={busy}
             focus={focus}
+            partners={info.partners ? { profile: info.partners } : null}
           />
         </div>
       </div>

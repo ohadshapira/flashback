@@ -30,6 +30,7 @@ On the home page, the **Try the demo** card builds a ready-to-play game of three
 |---|---|
 | **Couple** | Pass-the-phone game on one device |
 | **Family & Friends** | One screen, one team answer |
+| **Partners** | A parent and a child as one team (the demo has a fictional family with four places) |
 | **Party** | A party room where you play against three *simulated* players. Pick *Classic* or *Scratch* (harder: you scratch the photo clear and score less the more you reveal) |
 
 To create **your own** game, use the mode buttons on the home page, upload photos from your device, and set each photo's real place and month/year.

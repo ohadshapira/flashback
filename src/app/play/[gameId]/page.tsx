@@ -9,6 +9,7 @@ import { ClueStage } from '@/components/ClueView';
 import { useI18n } from '@/components/I18nProvider';
 import { api } from '@/lib/client/api';
 import { useLoad } from '@/lib/client/hooks';
+import { roundJobs } from '@/lib/partners';
 import type { SharedView } from '@/lib/client/types';
 
 /** Clue screen: tightly cropped photo → "I know it" (map + wheels) or "Reveal more" (wider crop). */
@@ -43,6 +44,9 @@ export default function CluePage() {
   if (error) return <main className="mx-auto w-full max-w-xl p-4"><ErrorBox message={errText(error)} onRetry={reload} /></main>;
   if (!data || !round || data.guessed) return <main className="mx-auto w-full max-w-xl p-4"><Spinner label={t('play.loading')} /></main>;
 
+  const partners = data.game.partners;
+  const jobs = partners ? roundJobs(partners, round.index) : null;
+
   // Full-screen clue: the image fills the viewport, controls float on top of it.
   return (
     <main className="fixed inset-0" style={{ height: '100dvh' }}>
@@ -53,7 +57,14 @@ export default function CluePage() {
         top={
           <div className="mx-auto flex max-w-xl items-center justify-between text-sm font-semibold drop-shadow">
             <span data-testid="round-label">{t('play.round', { n: round.index + 1, total: data.total })}</span>
-            <span className="text-white/85">{data.game.mode === 'couple' ? t('play.coupleNote') : t('play.teamNote')}</span>
+            {jobs ? (
+              <span className="flex flex-wrap justify-end gap-1.5" role="note" aria-label={t('partners.jobsAria', { map: jobs.map, wheels: jobs.wheels })} data-testid="clue-jobs">
+                <span className="rounded-full bg-black/60 px-3 py-1 text-[13px] ring-1 ring-white/25">🗺️ {jobs.map}</span>
+                <span className="rounded-full bg-black/60 px-3 py-1 text-[13px] ring-1 ring-white/25">📅 {jobs.wheels}</span>
+              </span>
+            ) : (
+              <span className="text-white/85">{data.game.mode === 'couple' ? t('play.coupleNote') : t('play.teamNote')}</span>
+            )}
           </div>
         }
         bottom={
