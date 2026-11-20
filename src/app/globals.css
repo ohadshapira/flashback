@@ -1,0 +1,393 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ivory: #fbf3e8;
+  --color-paper: #fffcf7;
+  --color-ink: #261a1d;
+  --color-muted: #6f5f5c;
+  --color-line: #ecdcc9;
+  --color-rose: #d24b62;
+  --color-rose-deep: #a8324a;
+  --color-rose-soft: #fbe4e3;
+  --color-apricot: #f29a63;
+  --color-blue: #46628a;
+  --color-blue-deep: #2f4668;
+  --color-blue-soft: #e2eaf4;
+  --color-good: #2f7a57;
+  --color-good-soft: #dcf0e4;
+  --color-warn: #a35f14;
+  --color-warn-soft: #fcebcf;
+  --font-display: 'Bricolage Grotesque Variable', 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-brand: 'Outfit Variable', 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --shadow-soft: 0 1px 0 rgba(38, 26, 29, 0.03), 0 10px 30px -14px rgba(38, 26, 29, 0.22);
+  --shadow-lift: 0 2px 0 rgba(38, 26, 29, 0.03), 0 22px 44px -18px rgba(120, 50, 60, 0.35);
+  --animate-float: float 7s ease-in-out infinite;
+}
+
+/* --- Hebrew typography: real Hebrew faces, no synthetic italics, no letter-spacing --- */
+html[lang='he'] {
+  --font-sans: 'Heebo Variable', 'Inter Variable', 'Segoe UI', system-ui, 'Arial Hebrew', Arial, sans-serif;
+  --font-display: 'Frank Ruhl Libre Variable', 'Times New Roman', serif;
+  font-feature-settings: normal;
+}
+/* Hebrew has no italic: slanted Hebrew looks broken. Latin wordmarks opt back in with .keep-italic */
+html[lang='he'] .italic:not(.keep-italic) {
+  font-style: normal;
+}
+html[lang='he'] [class*='tracking-']:not([dir='ltr']),
+html[lang='he'] .eyebrow,
+html[lang='he'] h1,
+html[lang='he'] h2,
+html[lang='he'] h3 {
+  letter-spacing: 0;
+}
+html[lang='he'] .eyebrow {
+  font-size: 12px;
+}
+/* spaced-out Latin room codes look great; a spaced-out Hebrew placeholder does not */
+html[lang='he'] input::placeholder {
+  letter-spacing: 0;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+html[lang='he'] body {
+  line-height: 1.6;
+}
+html[lang='he'] h1,
+html[lang='he'] h2,
+html[lang='he'] h3 {
+  line-height: 1.2;
+}
+
+html {
+  background: var(--color-ivory);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+body {
+  min-height: 100dvh;
+  position: relative;
+  background:
+    radial-gradient(900px 520px at 88% -8%, rgba(242, 154, 99, 0.28), transparent 60%),
+    radial-gradient(760px 520px at -10% 4%, rgba(210, 75, 98, 0.2), transparent 62%),
+    radial-gradient(900px 600px at 50% 112%, rgba(70, 98, 138, 0.16), transparent 60%),
+    var(--color-ivory);
+  background-attachment: fixed;
+  /* decorative blurs / tilted prints may poke past the viewport: never create horizontal scroll */
+  overflow-x: clip;
+  /* keeps horizontal swipes (maps, wheels) from triggering browser back/forward navigation */
+  overscroll-behavior-x: none;
+}
+/* subtle film grain over everything, never intercepting input */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.15  0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-variation-settings: 'opsz' 72;
+  letter-spacing: -0.025em;
+}
+/* The English heading face has no italic; a slanted fake looks cheap, so display text stays upright */
+.font-display.italic {
+  font-style: normal;
+}
+:focus-visible {
+  outline: 3px solid var(--color-blue);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+::selection {
+  background: var(--color-rose-soft);
+}
+
+@layer components {
+  .btn-primary {
+    @apply relative inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-7 py-2.5 text-base font-semibold text-white transition duration-200 hover:-translate-y-px hover:brightness-105 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:brightness-100;
+    background-image: linear-gradient(135deg, #e0566f 0%, #d24b62 45%, #ee8a5f 130%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 10px 22px -8px rgba(210, 75, 98, 0.65);
+  }
+  .btn-secondary {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-line bg-paper/90 px-5 py-2.5 text-base font-semibold text-ink shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_4px_12px_-6px_rgba(38,26,29,0.25)] backdrop-blur transition duration-200 hover:-translate-y-px hover:border-rose/40 hover:bg-white active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-ghost {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 py-2 text-base font-medium text-blue-deep transition hover:bg-blue-soft/80 active:scale-[0.98] disabled:opacity-45;
+  }
+  .card {
+    @apply rounded-[28px] border border-white/70 bg-paper/85 p-5 shadow-(--shadow-soft) backdrop-blur-sm;
+  }
+  .field {
+    @apply min-h-12 w-full rounded-2xl border border-line bg-white/80 px-4 py-2.5 text-base text-ink shadow-inner shadow-black/[0.02] transition placeholder:text-muted/60 focus:border-rose/50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-rose/15;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+  .text-gradient {
+    /* background-clip:text only paints inside the box, so give descenders (y, g, p…) room instead of cutting them off */
+    padding-bottom: 0.16em;
+    margin-bottom: -0.16em;
+    background-image: linear-gradient(120deg, #c93f5a 0%, #e8714f 60%, #f0a05f 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* white print frame with soft shadow */
+  .polaroid {
+    @apply rounded-[6px] bg-white p-2.5 pb-9 shadow-[0_2px_0_rgba(0,0,0,0.04),0_24px_40px_-16px_rgba(60,30,30,0.45)];
+  }
+}
+
+/* --- wheel pickers --------------------------------------------------- */
+.wheel-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* The wheel must scroll only itself: never chain into the page or the map, never trigger pull-to-refresh/back. */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  /* fade the rows towards the top and bottom edges */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28%, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 28%, #000 72%, transparent 100%);
+}
+.wheel-scroll::-webkit-scrollbar {
+  display: none;
+}
+.wheel-scroll.is-dragging {
+  scroll-snap-type: none;
+  cursor: grabbing;
+}
+.wheel-item {
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+/* --- MapLibre ------------------------------------------------------- */
+.fb-map .maplibregl-canvas {
+  outline: none;
+}
+/* warm the neutral basemap towards the brand palette (cheap overlay, not a per-frame canvas filter) */
+.fb-map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 205, 160, 0.14), rgba(240, 150, 120, 0.08));
+}
+.fb-map .maplibregl-marker,
+.fb-map .maplibregl-control-container {
+  z-index: 2;
+}
+.fb-map .maplibregl-ctrl-bottom-left,
+.fb-map .maplibregl-ctrl-bottom-right {
+  margin-bottom: var(--map-bottom-inset, 0px);
+}
+.fb-map .maplibregl-ctrl-group {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 252, 247, 0.92);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 20px -6px rgba(38, 26, 29, 0.3);
+}
+.fb-map .maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+.fb-map .maplibregl-ctrl-attrib {
+  font-size: 10px;
+  background: rgba(255, 252, 247, 0.75);
+  border-radius: 10px 0 0 0;
+}
+.fb-pin {
+  transform-origin: bottom center;
+}
+.fb-pin svg {
+  animation: pin-drop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.fb-pin-pulse {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: pin-pulse 1.8s ease-out 3;
+}
+
+/* --- motion --------------------------------------------------------- */
+@keyframes fb-reveal {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+.fb-reveal {
+  animation: fb-reveal 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes fb-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fb-pop {
+  animation: fb-pop 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.fb-stagger > * {
+  animation: fb-pop 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.fb-stagger > *:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.fb-stagger > *:nth-child(3) {
+  animation-delay: 0.14s;
+}
+.fb-stagger > *:nth-child(4) {
+  animation-delay: 0.21s;
+}
+.fb-stagger > *:nth-child(5) {
+  animation-delay: 0.28s;
+}
+/* full-screen clue: slow drift inside the zoomed frame, and a camera pull-back when a wider clue arrives */
+.clue-drift {
+  animation: clue-drift 22s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.clue-in-first {
+  animation: clue-in-first 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.clue-zoom-out {
+  animation: clue-zoom-out 1.5s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes clue-drift {
+  0% {
+    transform: scale(1.08) translate3d(-2%, -1.5%, 0);
+  }
+  50% {
+    transform: scale(1.1) translate3d(1.2%, -0.6%, 0);
+  }
+  100% {
+    transform: scale(1.08) translate3d(2%, 1.5%, 0);
+  }
+}
+/* wide image on a tall screen / tall image on a wide screen: sweep across the part `cover` would hide (transform only) */
+.pan-x {
+  animation: pan-x 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.pan-y {
+  animation: pan-y 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes pan-x {
+  from {
+    transform: translate3d(calc(var(--pan) * 0.1), 0, 0);
+  }
+  to {
+    transform: translate3d(calc(var(--pan) * 0.9), 0, 0);
+  }
+}
+@keyframes pan-y {
+  from {
+    transform: translate3d(0, calc(var(--pan) * 0.1), 0);
+  }
+  to {
+    transform: translate3d(0, calc(var(--pan) * 0.9), 0);
+  }
+}
+@keyframes clue-in-first {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes clue-zoom-out {
+  from {
+    opacity: 0.55;
+    transform: scale(1.38);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--r, 0deg));
+  }
+  50% {
+    transform: translateY(-8px) rotate(calc(var(--r, 0deg) + 0.8deg));
+  }
+}
+@keyframes pin-drop {
+  from {
+    transform: translateY(-26px) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes pin-pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 0.45;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+@keyframes score-fill {
+  from {
+    width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

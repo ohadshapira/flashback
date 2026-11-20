@@ -1,0 +1,17 @@
+node_modules
+.next
+.next-e2e
+out
+data
+data-e2e
+data-e2e-nogoogle
+test-results
+playwright-report
+tests
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.git
+docs
+deploy

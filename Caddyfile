@@ -1,0 +1,9 @@
+# HTTPS for flashback. Caddy gets and renews the certificate by itself (needs DOMAIN to point at this VM, ports 80 and 443 open).
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:3000 {
+		# the live party room stream must not be buffered
+		flush_interval -1
+	}
+}
