@@ -5,8 +5,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Map as MLMap, MapOptions, Marker as MLMarker } from 'maplibre-gl';
 import { clampLat, normalizeLng, unwrapLng } from '@/lib/geo';
 import { resolveMapStart, WORLD_START } from '@/lib/mapStart';
+import { PARTNERS_LIMITS } from '@/lib/partners';
 import { useI18n } from './I18nProvider';
 import type { Pin } from '@/lib/client/types';
+
+/** A family place drawn as a big emoji icon with its name (Partners games). Places without coordinates are skipped. */
+export type MapPlace = { lat: number | null; lng: number | null; icon: string; label: string; active?: boolean };
 
 type Props = {
   pin: Pin | null;
@@ -21,6 +25,12 @@ type Props = {
   bottomInset?: number;
   /** Fly to this location (e.g. when the host applies a suggestion). Change `nonce` to re-trigger. */
   focus?: (Pin & { nonce: number }) | null;
+  /** Family places drawn as tappable icons. */
+  places?: MapPlace[];
+  /** A tap on a place icon (or a tap / drop within a few px of one with `snapToPlaces`). */
+  onPlaceTap?: (index: number) => void;
+  /** Taps and drops near a place go to `onPlaceTap` instead of placing a free pin. */
+  snapToPlaces?: boolean;
   ariaLabel: string;
   className?: string;
 };
@@ -51,20 +61,46 @@ function resolveStyle(): { style: NonNullable<MapOptions['style']>; remote: bool
   return { style: DEFAULT_STYLE_URL, remote: true };
 }
 
+function placeElement(p: MapPlace, i: number, onTap: (i: number) => void): HTMLElement {
+  // The label is user text: DOM APIs and textContent only, never innerHTML.
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = `fb-place${p.active ? ' is-active' : ''}`;
+  el.dataset.testid = `place-marker-${i}`;
+  el.setAttribute('aria-label', p.label);
+  const icon = document.createElement('span');
+  icon.className = 'fb-place-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = p.icon;
+  const label = document.createElement('span');
+  label.className = 'fb-place-label';
+  label.dir = 'auto';
+  label.textContent = p.label;
+  el.append(icon, label);
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onTap(i);
+  });
+  return el;
+}
+
 function pinElement(kind: 'guess' | 'truth', testId: string): HTMLElement {
   const [from, to] = kind === 'truth' ? ['#3f9a6f', '#2a6f4f'] : ['#ee6a7d', '#c13a55'];
   const gid = `pg-${kind}`;
   const el = document.createElement('div');
   el.dataset.testid = testId;
   el.className = 'fb-pin';
-  el.style.cssText = `width:48px;height:60px;position:relative;display:flex;align-items:flex-end;justify-content:center;cursor:grab;touch-action:none;color:${to};`;
+  // position:absolute (not relative): an inline `relative` overrides MapLibre's `.maplibregl-marker { position:absolute }`,
+  // so every marker added after another one joins the normal flow and is drawn lower by the previous marker's height
+  // (the reveal's truth pin sat 60 px below its real spot). z-index keeps the pin above the place icons.
+  el.style.cssText = `width:48px;height:60px;position:absolute;z-index:2;display:flex;align-items:flex-end;justify-content:center;cursor:grab;touch-action:none;color:${to};`;
   el.innerHTML = `<span class="fb-pin-pulse"></span><svg width="42" height="54" viewBox="0 0 38 50" aria-hidden="true" style="position:relative;filter:drop-shadow(0 5px 4px rgba(40,10,20,.35))"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><path d="M19 49C19 49 3 30 3 18a16 16 0 0 1 32 0c0 12-16 31-16 31z" fill="url(#${gid})" stroke="#fff" stroke-width="2.5"/><circle cx="19" cy="18" r="6.2" fill="#fff"/></svg>`;
   return el;
 }
 
 const wrapPin = (p: { lat: number; lng: number }): Pin => ({ lat: clampLat(p.lat), lng: normalizeLng(p.lng) });
 
-export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset = 0, focus, ariaLabel, className }: Props) {
+export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset = 0, focus, places, onPlaceTap, snapToPlaces, ariaLabel, className }: Props) {
   const { dir, t } = useI18n();
   const wrapper = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -72,11 +108,30 @@ export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset =
   const mlRef = useRef<typeof import('maplibre-gl') | null>(null);
   const guessMarker = useRef<MLMarker | null>(null);
   const truthMarker = useRef<MLMarker | null>(null);
+  const placeMarkers = useRef<MLMarker[]>([]);
   const [ready, setReady] = useState(false);
 
   // Always-fresh callbacks/flags for event handlers registered once.
-  const cb = useRef({ onPinChange, readOnly: !!readOnly });
-  cb.current = { onPinChange, readOnly: !!readOnly };
+  const cb = useRef({ onPinChange, readOnly: !!readOnly, places, onPlaceTap, snapToPlaces: !!snapToPlaces, bottomInset, fit: !!fit });
+  cb.current = { onPinChange, readOnly: !!readOnly, places, onPlaceTap, snapToPlaces: !!snapToPlaces, bottomInset, fit: !!fit };
+
+  /** The place whose icon is within snapPx of a screen point (nearest wins), if snapping is on. */
+  const placeNear = (map: MLMap, pt: { x: number; y: number }): number => {
+    const { places: ps, snapToPlaces: snap } = cb.current;
+    if (!snap || !ps) return -1;
+    let best = -1;
+    let bestD: number = PARTNERS_LIMITS.snapPx;
+    ps.forEach((p, i) => {
+      if (p.lat === null || p.lng === null) return;
+      const q = map.project([p.lng, p.lat]);
+      const d = Math.hypot(q.x - pt.x, q.y - pt.y);
+      if (d <= bestD) {
+        best = i;
+        bestD = d;
+      }
+    });
+    return best;
+  };
 
   /* ---- create the map once ---- */
   useEffect(() => {
@@ -126,7 +181,9 @@ export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset =
       });
       map.on('click', (e) => {
         if (cb.current.readOnly) return;
-        if ((e.originalEvent?.target as HTMLElement | null)?.closest?.('.fb-pin')) return;
+        if ((e.originalEvent?.target as HTMLElement | null)?.closest?.('.fb-pin, .fb-place')) return;
+        const near = placeNear(map!, e.point);
+        if (near >= 0) return void cb.current.onPlaceTap?.(near);
         cb.current.onPinChange?.(wrapPin(e.lngLat.wrap()));
       });
       map.on('load', () => {
@@ -135,6 +192,15 @@ export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset =
         const attrib = container.current?.querySelector('.maplibregl-ctrl-attrib');
         attrib?.removeAttribute('open');
         attrib?.classList.remove('maplibregl-compact-show');
+        // Partners: open fitted to the family's places (clear of the hint bubble), unless the caller fits to pins itself.
+        const { places: ps, fit: fitPins, bottomInset: inset } = cb.current;
+        const placed = (ps ?? []).filter((p): p is MapPlace & { lat: number; lng: number } => p.lat !== null && p.lng !== null);
+        if (!fitPins && placed.length === 1) map!.jumpTo({ center: [placed[0].lng, placed[0].lat], zoom: 11 });
+        else if (!fitPins && placed.length > 1) {
+          const lngs = placed.map((p) => p.lng);
+          const lats = placed.map((p) => p.lat);
+          map!.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: { top: 80, left: 50, right: 50, bottom: inset + 100 }, maxZoom: 12, duration: 0 });
+        }
         setReady(true);
       });
       mapRef.current = map;
@@ -145,6 +211,8 @@ export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset =
       guessMarker.current?.remove();
       truthMarker.current?.remove();
       guessMarker.current = truthMarker.current = null;
+      placeMarkers.current.forEach((m) => m.remove());
+      placeMarkers.current = [];
       map?.remove();
       mapRef.current = null;
       setReady(false);
@@ -165,6 +233,12 @@ export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset =
     if (!guessMarker.current) {
       const m = new ml.Marker({ element: pinElement('guess', 'pin-marker'), draggable: !readOnly, anchor: 'bottom' }).setLngLat([pin.lng, pin.lat]).addTo(map);
       m.on('dragend', () => {
+        const near = placeNear(map, map.project(m.getLngLat()));
+        const target = near >= 0 ? cb.current.places?.[near] : undefined;
+        if (near >= 0 && target && target.lat !== null && target.lng !== null) {
+          m.setLngLat([target.lng, target.lat]);
+          return void cb.current.onPlaceTap?.(near);
+        }
         const p = wrapPin(m.getLngLat());
         m.setLngLat([p.lng, p.lat]);
         cb.current.onPinChange?.(p);
@@ -175,6 +249,24 @@ export function WorldMap({ pin, onPinChange, readOnly, truth, fit, bottomInset =
       guessMarker.current.setDraggable(!readOnly);
     }
   }, [pin, ready, readOnly]);
+
+  /* ---- family places (Partners): big emoji icons with their names ---- */
+  // Keyed on the places' content, so a parent that rebuilds the array every render does not recreate the markers.
+  const placesKey = JSON.stringify(places ?? []);
+  useEffect(() => {
+    const map = mapRef.current;
+    const ml = mlRef.current;
+    if (!ready || !map || !ml) return;
+    placeMarkers.current.forEach((m) => m.remove());
+    placeMarkers.current = [];
+    (JSON.parse(placesKey) as MapPlace[]).forEach((p, i) => {
+      if (p.lat === null || p.lng === null) return;
+      const el = placeElement(p, i, (idx) => {
+        if (!cb.current.readOnly) cb.current.onPlaceTap?.(idx);
+      });
+      placeMarkers.current.push(new ml.Marker({ element: el, anchor: 'center' }).setLngLat([p.lng, p.lat]).addTo(map));
+    });
+  }, [placesKey, ready]);
 
   /* ---- reveal: truth pin, connecting line, fit ---- */
   useEffect(() => {

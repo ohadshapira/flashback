@@ -24,6 +24,8 @@ export type GameRow = {
   revealed_at: number | null;
   host_seen_at: number | null;
   play_style: 'classic' | 'scratch';
+  /** JSON of a PartnersProfile; null for every game that is not a Partners game. */
+  partners: string | null;
   created_at: number;
   updated_at: number;
   expires_at: number;

@@ -2,14 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Heart, PartyPopper, Users } from 'lucide-react';
+import { useEffect } from 'react';
+import { Check, Heart, HeartHandshake, PartyPopper, Users } from 'lucide-react';
 import { BackLink, ErrorBox, PageHeading, PageShell, Stepper } from '@/components/Shell';
 import { useI18n } from '@/components/I18nProvider';
 import { api } from '@/lib/client/api';
 import { LIMITS } from '@/lib/config';
+import { PartnersSetup, defaultPartnersDraft, draftToProfile, loadPartnersDraft, savePartnersDraft, type PartnersDraft } from '@/components/PartnersSetup';
 import type { GameMeta } from '@/lib/client/types';
 
-type Mode = 'couple' | 'family_shared' | 'party';
+/** `partners` is a pseudo-mode: the server stores it as a family_shared game plus a profile. */
+type Mode = 'couple' | 'family_shared' | 'party' | 'partners';
 
 export function NewGameClient({ initialMode, swap }: { initialMode: Mode; swap: boolean }) {
   const { t, errText } = useI18n();
@@ -20,20 +23,35 @@ export function NewGameClient({ initialMode, swap }: { initialMode: Mode; swap: 
   const [count, setCount] = useState<number>(LIMITS.defaultPhotos);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [partners, setPartners] = useState<PartnersDraft>(() => defaultPartnersDraft(t));
+
+  // The saved Partners profile is read after mount (no storage access while rendering on the server).
+  useEffect(() => {
+    setPartners(loadPartnersDraft(t));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
 
   const options: { id: Mode; label: string; desc: string; icon: typeof Heart; tint: string }[] = [
     { id: 'couple', label: t('new.mode.couple'), desc: t('home.couple.desc'), icon: Heart, tint: 'from-rose to-apricot' },
     { id: 'family_shared', label: t('new.mode.family'), desc: t('home.family.desc'), icon: Users, tint: 'from-blue to-blue-deep' },
     { id: 'party', label: t('new.mode.party'), desc: t('home.party.desc'), icon: PartyPopper, tint: 'from-apricot to-[#e3a23a]' },
+    { id: 'partners', label: t('new.mode.partners'), desc: t('home.partners.desc'), icon: HeartHandshake, tint: 'from-good to-[#5fae86]' },
   ];
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setError(null);
+    const profile = mode === 'partners' ? draftToProfile(partners) : null;
+    if (mode === 'partners' && !profile) return void setError(t('partners.needNames'));
+    setBusy(true);
     try {
-      const g = await api<GameMeta>('/api/games', { body: { mode, title: title || undefined, targetCount: count, style: mode === 'party' ? style : undefined } });
+      if (profile) savePartnersDraft(partners);
+      const g = await api<GameMeta>('/api/games', {
+        body: profile
+          ? { mode: 'family_shared', partners: profile, title: title || undefined, targetCount: count }
+          : { mode, title: title || undefined, targetCount: count, style: mode === 'party' ? style : undefined },
+      });
       router.push(`/new/photos?game=${g.id}`);
     } catch (err) {
       setError(errText(err));
@@ -68,6 +86,8 @@ export function NewGameClient({ initialMode, swap }: { initialMode: Mode; swap: 
             </label>
           ))}
         </fieldset>
+
+        {mode === 'partners' && <PartnersSetup draft={partners} onChange={setPartners} />}
 
         {mode === 'party' && (
           <fieldset className="space-y-2.5" data-testid="style-picker">

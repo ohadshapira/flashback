@@ -43,6 +43,7 @@ export default function SummaryPage() {
   }
 
   const couple = data?.game.mode === 'couple';
+  const partners = data?.game.partners ?? null;
   return (
     <>
       <AppHeader />
@@ -68,12 +69,12 @@ export default function SummaryPage() {
                 <div className="grid h-24 w-24 place-items-center rounded-full bg-gradient-to-br from-rose-soft to-white text-rose-deep shadow-inner"><Heart size={34} fill="currentColor" /></div>
               </div>
               <h1 className="font-display text-[2.25rem] font-semibold leading-tight tracking-tight" data-testid="summary-heading" style={{ fontVariationSettings: "'opsz' 96" }}>{t('summary.heading')}</h1>
-              <p className="text-lg text-muted">{couple ? t('summary.couple', { n: data.rounds.length }) : t('summary.family', { n: data.rounds.length })}</p>
+              <p className="text-lg text-muted">{partners ? t('partners.summary', { child: partners.childName, parent: partners.parentName, n: data.rounds.length }) : couple ? t('summary.couple', { n: data.rounds.length }) : t('summary.family', { n: data.rounds.length })}</p>
               {couple ? (
                 <p className="text-sm text-muted" data-testid="summary-score">{t('summary.score', { score: data.totalScore, max: data.maxScore })}</p>
               ) : (
                 <div className="card mx-auto max-w-xs">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t('summary.team')}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">{partners ? t('partners.teamScore', { child: partners.childName, parent: partners.parentName }) : t('summary.team')}</div>
                   <div className="font-display text-4xl font-bold text-rose-deep" data-testid="summary-score">{data.totalScore}<span className="text-lg font-medium text-muted"> / {data.maxScore}</span></div>
                 </div>
               )}
@@ -106,7 +107,9 @@ export default function SummaryPage() {
               <button type="button" className={couple ? 'btn-secondary' : 'btn-primary'} onClick={replay} disabled={busy} data-testid="replay">
                 <RotateCcw size={18} aria-hidden /> {t('summary.replay')}
               </button>
-              {!couple && <Link href="/new?mode=family-shared" className="btn-secondary">{t('home.family.title')}</Link>}
+              {!couple && (
+                <Link href={partners ? '/new?mode=partners' : '/new?mode=family-shared'} className="btn-secondary">{partners ? t('home.partners.title') : t('home.family.title')}</Link>
+              )}
               {/* sample games are throw-away; nothing of the user's to delete */}
               {!data.game.demo && (
                 <button type="button" className="btn-ghost text-rose-deep" onClick={remove} disabled={busy} data-testid="delete-game">

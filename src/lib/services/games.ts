@@ -4,6 +4,8 @@ import { ApiError } from '../errors';
 import { LIMITS, PARTY, retentionDays } from '../config';
 import { isValidLatLng } from '../geo';
 import { isValidMonthYear } from '../date';
+import { partnersSchema } from '../schemas';
+import type { PartnersProfile } from '../partners';
 import { buildCrops, processImage, type PhotoSuggestion } from '../images';
 import { deleteGameMedia, deletePuzzleMedia, readMedia, writeMedia } from '../storage';
 import { publish } from '../bus';
@@ -23,16 +25,23 @@ import {
   type PuzzleRow,
 } from './shared';
 
-export function createGame(sid: string, input: { mode: Mode; title?: string; targetCount?: number; style?: 'classic' | 'scratch' }): GameRow {
+export function createGame(sid: string, input: { mode: Mode; title?: string; targetCount?: number; style?: 'classic' | 'scratch'; partners?: unknown }): GameRow {
   const d = db();
   const mine = (d.prepare('SELECT COUNT(*) c FROM games WHERE owner_sid = ?').get(sid) as { c: number }).c;
   if (mine >= 30) throw new ApiError(429, 'too_many_games', 'Too many games on this device; delete some first');
+  let partners: string | null = null;
+  if (input.partners !== undefined) {
+    if (input.mode !== 'family_shared') throw new ApiError(400, 'invalid_input', 'Partners is a Family & Friends game');
+    const parsed = partnersSchema.safeParse(input.partners);
+    if (!parsed.success) throw new ApiError(400, 'invalid_input', 'Invalid partners profile');
+    partners = JSON.stringify(parsed.data);
+  }
   const now = Date.now();
   const id = newId();
   d.prepare(
-    `INSERT INTO games (id, title, mode, status, owner_sid, target_count, play_style, created_at, updated_at, expires_at)
-     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`,
-  ).run(id, input.title || null, input.mode, sid, input.targetCount ?? LIMITS.defaultPhotos, input.mode === 'party' && input.style === 'scratch' ? 'scratch' : 'classic', now, now, now + retentionDays() * 86_400_000);
+    `INSERT INTO games (id, title, mode, status, owner_sid, target_count, play_style, partners, created_at, updated_at, expires_at)
+     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, input.title || null, input.mode, sid, input.targetCount ?? LIMITS.defaultPhotos, input.mode === 'party' && input.style === 'scratch' ? 'scratch' : 'classic', partners, now, now, now + retentionDays() * 86_400_000);
   return getGame(id);
 }
 
@@ -46,12 +55,24 @@ export function assertDraft(game: GameRow) {
   if (game.status !== 'draft') throw new ApiError(409, 'game_locked', 'Game can no longer be edited');
 }
 
+/** The Partners profile of a game, or null (not a Partners game, or damaged data). */
+export function partnersOf(game: Pick<GameRow, 'partners'>): PartnersProfile | null {
+  if (!game.partners) return null;
+  try {
+    const parsed = partnersSchema.safeParse(JSON.parse(game.partners));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Safe-for-anyone metadata. Contains no answers. */
 export function gameMeta(game: GameRow, sid: string | null) {
   const owner = !!sid && sid === game.owner_sid;
   return {
     id: game.id,
     title: owner ? game.title : null, // a private label: owner only
+    partners: owner ? partnersOf(game) : null, // names and family places: personal, so owner only (not an answer)
     mode: game.mode,
     playStyle: game.play_style,
     status: game.status,
@@ -164,7 +185,7 @@ export function puzzleInfo(puzzleId: string, sid: string) {
   const { puzzle, game } = getPuzzleForOwner(puzzleId, sid);
   const list = puzzlesOf(game.id);
   const index = list.findIndex((p) => p.id === puzzle.id);
-  return { gameId: game.id, mode: game.mode, index, total: list.length, nextId: list[index + 1]?.id ?? null, puzzle: toHostPuzzle(puzzle) };
+  return { gameId: game.id, mode: game.mode, partners: partnersOf(game), index, total: list.length, nextId: list[index + 1]?.id ?? null, puzzle: toHostPuzzle(puzzle) };
 }
 
 export type PuzzlePatch = {

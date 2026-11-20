@@ -248,7 +248,7 @@ export function WheelPicker<V extends string | number>({ items, value, onChange,
                 commit(i);
               }}
             >
-              {it.label}
+              <span dir="auto" className="whitespace-nowrap">{it.label}</span>
             </div>
           );
         })}

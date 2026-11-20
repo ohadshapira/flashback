@@ -29,10 +29,10 @@ export default function GuessPage() {
 
   if (error) return <div className="p-4"><ErrorBox message={errText(error)} onRetry={reload} /></div>;
   if (!data?.round || data.guessed) return <Spinner label={t('play.loading')} />;
-  return <GuessInner gameId={gameId} round={data.round} total={data.total} />;
+  return <GuessInner gameId={gameId} round={data.round} total={data.total} partners={data.game.partners} />;
 }
 
-function GuessInner({ gameId, round, total }: { gameId: string; round: NonNullable<SharedView['round']>; total: number }) {
+function GuessInner({ gameId, round, total, partners }: { gameId: string; round: NonNullable<SharedView['round']>; total: number; partners: SharedView['game']['partners'] }) {
   const router = useRouter();
   const { t, errText } = useI18n();
   const key = `fb:guess:${gameId}:${round.index}`;
@@ -77,6 +77,7 @@ function GuessInner({ gameId, round, total }: { gameId: string; round: NonNullab
         busy={busy}
         clueUrl={round.clueUrl}
         clueStage={round.stage}
+        partners={partners ? { profile: partners, roundIndex: round.index } : null}
       />
     </GameScreen>
   );

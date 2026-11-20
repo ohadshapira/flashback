@@ -7,7 +7,7 @@ How the game works and how it is built. For installing and running it, see [INST
 | Route | Purpose |
 |---|---|
 | `/` | Home: modes, join by code, demo |
-| `/new?mode=couple\|family-shared\|party` | Create a game |
+| `/new?mode=couple\|family-shared\|partners\|party` | Create a game |
 | `/new/photos?game=…` | Upload from the device or Google Photos, reorder, remove |
 | `/new/photo/[id]/details` | The real answer: map pin plus **month/year wheels** (the same component as guessing), title and story |
 | `/new/photo/[id]/crop` | Drag the focus target; live preview of all four zoom stages |
@@ -21,6 +21,12 @@ How the game works and how it is built. For installing and running it, see [INST
 
 * **Couple**: one person builds the game and answers every photo, then hands the phone over. The host's own device is refused the answers until the game is finished, so passing the phone is safe.
 * **Family & Friends**: everyone around one screen agrees on one pin and one date. The score is a team score.
+* **Partners** (a parent and a child, one team, one screen; designed with autistic children in mind: calm, predictable, concrete). It is the same game as Family & Friends (same screens, same scoring) with three changes:
+  1. **Two jobs that swap every round.** One partner places the pin, the other turns the wheels. The child starts on the map (even round index). The hand-off, clue and guess screens say who does what, and the reveal credits the place points and the date points to whoever did that job.
+  2. **The family's own map.** Up to 6 places (home, grandma, kindergarten...) are marked once during setup and drawn on the map as big emoji icons with their names; the map opens fitted to them. Tapping an icon, or tapping or dropping the pin within 44 px of one, puts the pin exactly on the place, so a correct tap scores 50/50 for location. The reveal names the place when the true location is within 3 km of one.
+  3. **Wheels a child can read.** Same values, new labels: a season icon before every month (flipped in the southern hemisphere), 🎂 after the birthday month, and the child's age next to each year, computed at the selected month ("2022 · age 4").
+
+  Partners is not a new `games.mode`: it is a `family_shared` game plus a profile (child name, what the child calls the grown-up, optional birth month/year, the places) in the nullable column `games.partners` (JSON, migration `003_partners.sql`). The profile is personal but not an answer: it is returned to the game's owner only (like `title`) and is deleted with the game. The setup form remembers it on the device in `localStorage` (`fb:partners`). The pure helpers (roles, age, seasons, nearest place) are in `src/lib/partners.ts`. The home demo card has a Partners button.
 * **Party**: everyone plays on their own phone. The host sets the answers and does not compete. Players join with a code, link or QR code.
   * *Classic*: the zoom widens over time (stages at 0, 15, 30 and 45 s of a 60 s round).
   * *Scratch* (harder): the photo is covered by foil and each player scratches their own copy clear. The more you reveal, the lower your 20-point bonus: up to 10% revealed is 20, up to 25% is 15, up to 45% is 10, up to 70% is 5, more is 0. Location and date points are unchanged. The summary lists every player's score per round and how much each scratched.
@@ -84,8 +90,8 @@ Games and photos are deleted `IMAGE_RETENTION_DAYS` after the **last activity** 
 
 ## Tests
 
-* `npm test`: 94 unit and integration tests covering the scoring tables and boundaries, haversine across the date line, month/year logic, crop geometry, the crypto and PKCE vectors, rate limiting, the SSRF guard, translation key parity, and integration tests on real SQLite and real image processing for permissions (no leak of answers, originals or later stages; host lock; strangers), idempotent guesses, EXIF stripping, deletion, retention, the scratch game, the owner lock, and the full party state machine.
-* `npm run test:e2e`: 20 Playwright journeys on a phone profile and desktop Chrome. A local **mock** of Google OAuth and the Picker enforces the real contract (Bearer token, PKCE verification, string `maxItemCount`, durations, `FAILED_PRECONDITION`, pagination). Journeys: couple play from start to finish, host setup, a three-browser party game, the scratch game, the Google flow against the mock, the not-configured path, answer-leak security checks, wheels/keyboard/RTL/LTR, and a 320 px layout.
+* `npm test`: 112 unit and integration tests covering the scoring tables and boundaries, haversine across the date line, month/year logic, crop geometry, the crypto and PKCE vectors, rate limiting, the SSRF guard, translation key parity, and integration tests on real SQLite and real image processing for permissions (no leak of answers, originals or later stages; host lock; strangers), idempotent guesses, EXIF stripping, deletion, retention, the scratch game, the owner lock, the Partners mode (jobs, age, seasons, place snapping, owner-only profile), and the full party state machine.
+* `npm run test:e2e`: 23 Playwright journeys on a phone profile and desktop Chrome. A local **mock** of Google OAuth and the Picker enforces the real contract (Bearer token, PKCE verification, string `maxItemCount`, durations, `FAILED_PRECONDITION`, pagination). Journeys: couple play from start to finish, host setup, a three-browser party game, the scratch game, the Google flow against the mock, the not-configured path, answer-leak security checks, wheels/keyboard/RTL/LTR, and a 320 px layout.
 
 Not covered by automation: a live Google account, real iOS Safari and physical Android devices, and a licensed map provider.
 

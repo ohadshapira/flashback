@@ -6,6 +6,7 @@ import { WorldMap } from './WorldMap';
 import { PanImage } from './PanImage';
 import { useI18n } from './I18nProvider';
 import { formatMonthYear } from '@/lib/date';
+import { ageAt, nearestPlace, roundJobs, type PartnerPlace, type PartnersProfile } from '@/lib/partners';
 import { formatDistance } from '@/lib/geo';
 import type { RoundResult } from '@/lib/client/types';
 
@@ -43,17 +44,32 @@ function ScoreRing({ total, size = 128 }: { total: number; size?: number }) {
   );
 }
 
-type Shared = { result: RoundResult; team?: boolean; hideGuess?: boolean };
+type Shared = { result: RoundResult; team?: boolean; hideGuess?: boolean; partners?: PartnersProfile | null };
+
+/** Partners: who did which job this round, the family place the memory happened at (within 3 km), and the child's age. */
+export function partnerFacts(result: RoundResult, profile: PartnersProfile | null | undefined, t: ReturnType<typeof useI18n>['t']): { jobs: { map: string; wheels: string } | null; place: PartnerPlace | null; age: string | null } {
+  if (!profile) return { jobs: null, place: null, age: null };
+  const { map, wheels } = roundJobs(profile, result.index);
+  const n = profile.birth ? ageAt(profile.birth, result.truth) : null;
+  const age = n === null ? null : n > 0 ? `🎂 ${t('partners.ageText', { n })}` : n === 0 ? `🍼 ${t('partners.firstYear')}` : t('partners.beforeBorn');
+  return { jobs: { map, wheels }, place: nearestPlace(profile.places, result.truth), age };
+}
 
 /** Map with the real place, the guess, the line between them and the distance. */
-function MapCard({ result, hideGuess, tall }: Shared & { tall?: boolean }) {
+function MapCard({ result, hideGuess, tall, partners }: Shared & { tall?: boolean }) {
   const { t, intl } = useI18n();
   const g = hideGuess ? null : result.guess;
+  const { place } = partnerFacts(result, partners, t);
   return (
     <section className="card fb-pop space-y-3 !p-2.5">
       <div className={`relative overflow-hidden rounded-[22px] ${tall ? 'h-72 @3xl:h-80 sm:h-80' : 'h-64 @3xl:h-80'}`}>
         <WorldMap className="absolute inset-0" pin={g ? { lat: g.lat, lng: g.lng } : null} truth={result.truth} readOnly fit ariaLabel={t('reveal.correct')} />
       </div>
+      {place && (
+        <p className="chip w-full justify-center whitespace-normal bg-good-soft py-2 text-base text-good" data-testid="reveal-place">
+          {t('partners.place')}: {place.icon} {place.label}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 pb-1 text-sm">
         <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-good ring-2 ring-white" /> {t('reveal.legendTruth')}</span>
         {g && <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-rose ring-2 ring-white" /> {t('reveal.legendGuess')}</span>}
@@ -63,15 +79,17 @@ function MapCard({ result, hideGuess, tall }: Shared & { tall?: boolean }) {
   );
 }
 
-function DatesCard({ result, team, hideGuess }: Shared) {
+function DatesCard({ result, team, hideGuess, partners }: Shared) {
   const { t, intl } = useI18n();
   const g = hideGuess ? null : result.guess;
   const diff = g ? g.monthDiff : null;
+  const { age } = partnerFacts(result, partners, t);
   return (
     <section className="card grid grid-cols-2 gap-3 text-center">
       <div className={`rounded-2xl bg-good-soft/70 px-3 py-4 ${hideGuess ? 'col-span-2' : ''}`}>
         <div className="eyebrow !text-good">{t('reveal.correct')}</div>
         <div className="mt-1 font-display text-2xl font-semibold text-good" data-testid="reveal-true-date">{formatMonthYear(result.truth, intl)}</div>
+        {age && <div className="mt-1 text-sm font-semibold text-good" data-testid="reveal-age">{age}</div>}
       </div>
       <div className={`rounded-2xl bg-rose-soft/70 px-3 py-4 ${hideGuess ? 'hidden' : ''}`}>
         <div className="eyebrow !text-rose-deep">{team ? t('reveal.teamGuess') : t('reveal.yourGuess')}</div>
@@ -86,9 +104,10 @@ function DatesCard({ result, team, hideGuess }: Shared) {
   );
 }
 
-function ScoreCard({ result, hideGuess }: Shared) {
+function ScoreCard({ result, hideGuess, partners }: Shared) {
   const { t } = useI18n();
   const g = hideGuess ? null : result.guess;
+  const { jobs } = partnerFacts(result, partners, t);
   if (!g) return hideGuess ? null : <p className="card text-center text-muted" data-testid="no-guess">{t('reveal.noGuess')}</p>;
   return (
     <section className="card" data-testid="score-breakdown">
@@ -102,7 +121,11 @@ function ScoreCard({ result, hideGuess }: Shared) {
           ].map(([k, v, max]) => (
             <div key={k as string}>
               <div className="mb-1 flex items-baseline justify-between text-sm">
-                <dt className="font-medium">{k === 'reveal.zoom' && g.scratchPct !== null ? t('reveal.scratch') : t(k as 'reveal.location')}</dt>
+                <dt className="font-medium">
+                  {k === 'reveal.zoom' && g.scratchPct !== null ? t('reveal.scratch') : t(k as 'reveal.location')}
+                  {jobs && k === 'reveal.location' && ` · ${jobs.map}`}
+                  {jobs && k === 'reveal.date' && ` · ${jobs.wheels}`}
+                </dt>
                 <dd className="font-semibold tabular-nums" data-testid={`score-${(k as string).split('.')[1]}`}>{v}/{max}</dd>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-line/70">
@@ -131,6 +154,7 @@ export function RevealView({
   result,
   team,
   hideGuess,
+  partners,
   immersive,
   actions,
   children,
@@ -143,6 +167,7 @@ export function RevealView({
 }) {
   const { t, intl } = useI18n();
   const g = hideGuess ? null : result.guess;
+  const facts = partnerFacts(result, partners, t);
   const verdict = g ? verdictKey(g.score.total) : null;
   // Immersive hero: fill the screen by default (slowly panning across whatever `cover` would hide); one tap shows the whole photo.
   const [fit, setFit] = useState(false);
@@ -194,9 +219,9 @@ export function RevealView({
             )}
           </figure>
           <div className="space-y-5">
-            <MapCard result={result} team={team} hideGuess={hideGuess} />
-            <DatesCard result={result} team={team} hideGuess={hideGuess} />
-            <ScoreCard result={result} team={team} hideGuess={hideGuess} />
+            <MapCard result={result} team={team} hideGuess={hideGuess} partners={partners} />
+            <DatesCard result={result} team={team} hideGuess={hideGuess} partners={partners} />
+            <ScoreCard result={result} team={team} hideGuess={hideGuess} partners={partners} />
           </div>
         </div>
         {children}
@@ -263,6 +288,12 @@ export function RevealView({
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[13px] font-semibold ring-1 ring-white/30 lg:px-3 lg:py-1.5 lg:text-sm">
               <CalendarDays size={15} /> {formatMonthYear(result.truth, intl)}
             </span>
+            {facts.place && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[13px] font-semibold ring-1 ring-white/30 lg:px-3 lg:py-1.5 lg:text-sm">{facts.place.icon} {facts.place.label}</span>
+            )}
+            {facts.age && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[13px] font-semibold ring-1 ring-white/30 lg:px-3 lg:py-1.5 lg:text-sm">{facts.age}</span>
+            )}
             {g && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[13px] font-semibold ring-1 ring-white/30 lg:px-3 lg:py-1.5 lg:text-sm">
                 <MapPin size={15} /> <bdi dir="ltr">{formatDistance(g.distanceKm, intl)}</bdi>
@@ -291,9 +322,9 @@ export function RevealView({
           <span className="inline-flex items-center gap-1">{t('reveal.seeDetails')} <ChevronUp size={15} aria-hidden /></span>
         </button>
         <div className="mx-auto max-w-xl space-y-5">
-          <MapCard result={result} team={team} hideGuess={hideGuess} tall />
-          <DatesCard result={result} team={team} hideGuess={hideGuess} />
-          <ScoreCard result={result} team={team} hideGuess={hideGuess} />
+          <MapCard result={result} team={team} hideGuess={hideGuess} partners={partners} tall />
+          <DatesCard result={result} team={team} hideGuess={hideGuess} partners={partners} />
+          <ScoreCard result={result} team={team} hideGuess={hideGuess} partners={partners} />
           {children}
         </div>
       </div>

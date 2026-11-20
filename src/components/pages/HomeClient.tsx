@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowRight, ArrowLeft, Heart, KeyRound, MapPin, PartyPopper, Sparkles, Users, Image as ImageIcon, CalendarClock, Gift } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Heart, HeartHandshake, KeyRound, MapPin, PartyPopper, Sparkles, Users, Image as ImageIcon, CalendarClock, Gift } from 'lucide-react';
 import { AppHeader, ErrorBox } from '@/components/Shell';
 import { Hero } from '@/components/Hero';
 import { useI18n } from '@/components/I18nProvider';
@@ -11,6 +11,8 @@ import { api } from '@/lib/client/api';
 import type { GameMeta } from '@/lib/client/types';
 
 type Mode = 'couple' | 'family_shared' | 'party';
+/** Partners is a family_shared game with a profile, so the demo button sends the same mode plus a flag. */
+type DemoKind = Mode | 'partners';
 
 export function HomeClient({ demo, google }: { demo: boolean; google?: string }) {
   const { t, errText, dir } = useI18n();
@@ -25,6 +27,7 @@ export function HomeClient({ demo, google }: { demo: boolean; google?: string })
     { mode: 'couple', href: '/new?mode=couple', icon: Heart, title: t('home.couple.title'), desc: t('home.couple.desc'), accent: 'from-rose to-apricot', id: 'couple' },
     { mode: 'family_shared', href: '/new?mode=family-shared', icon: Users, title: t('home.family.title'), desc: t('home.family.desc'), accent: 'from-blue to-[#7aa5d4]', id: 'family' },
     { mode: 'party', href: '/new?mode=party', icon: PartyPopper, title: t('home.party.title'), desc: t('home.party.desc'), accent: 'from-[#e0a03a] to-[#f2c76b]', id: 'party' },
+    { mode: 'partners', href: '/new?mode=partners', icon: HeartHandshake, title: t('home.partners.title'), desc: t('home.partners.desc'), accent: 'from-good to-[#5fae86]', id: 'partners' },
   ] as const;
 
   const steps = [
@@ -35,11 +38,12 @@ export function HomeClient({ demo, google }: { demo: boolean; google?: string })
   ];
 
   /** The party demo is always the one you can play on your own (with simulated players); the style is chosen first. */
-  async function startDemo(mode: Mode, style?: 'classic' | 'scratch') {
+  async function startDemo(mode: DemoKind, style?: 'classic' | 'scratch') {
     setBusy(mode === 'party' ? `party-${style ?? 'classic'}` : mode);
     setError(null);
     try {
-      const g = await api<GameMeta>('/api/demo', { body: mode === 'party' ? { mode, solo: true, style: style ?? 'classic' } : { mode } });
+      const body = mode === 'party' ? { mode, solo: true, style: style ?? 'classic' } : mode === 'partners' ? { mode: 'family_shared', partners: true } : { mode };
+      const g = await api<GameMeta>('/api/demo', { body });
       router.push(mode === 'party' ? `/room/${g.joinCode}/lobby` : `/play/${g.id}/handoff`);
     } catch (e) {
       setError(errText(e));
@@ -75,7 +79,7 @@ export function HomeClient({ demo, google }: { demo: boolean; google?: string })
         {(google === 'denied' || google === 'error') && <div className="mt-4"><ErrorBox message={google === 'denied' ? t('home.googleDenied') : t('home.googleError')} /></div>}
         {error && <div className="mt-4"><ErrorBox message={error} /></div>}
 
-        <section className="fb-stagger mt-6 grid gap-3 md:grid-cols-3" aria-label="game modes">
+        <section className="fb-stagger mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-4" aria-label="game modes">
           {modes.map((m) => (
             <Link
               key={m.id}
